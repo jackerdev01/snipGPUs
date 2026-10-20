@@ -1,34 +1,34 @@
 # snipGPU
 
-Bot tự săn GPU giá rẻ trên **Vast.ai, Clore.ai, QuickPod và SaladCloud** để đào **PRL** (PearlHash) và **QTC** (Quantus) qua pool Kryptex. Bot làm các việc sau:
+A bot that hunts for cheap GPUs on **[Vast.ai](https://cloud.vast.ai/?ref_id=716525), [Clore.ai](https://clore.ai/register?ref_id=6ph9tvyq), [QuickPod](https://console.quickpod.io?affiliate=303bbe95-4783-4a7d-ad33-98a8da2aec40) and SaladCloud** to mine **PRL** (PearlHash) and **QTC** (Quantus) on the Kryptex pool. It:
 
-- quét giá liên tục, tính lãi từng máy theo doanh thu thật của pool;
-- thuê máy khi lãi vượt ngưỡng bạn đặt, tự cài và chạy miner;
-- đo hashrate thật, tự đổi sang coin lãi hơn (tuỳ chọn);
-- trả máy khi lãi xuống thấp, miner lỗi hoặc hashrate yếu;
-- báo cáo và nhận lệnh qua **Telegram**.
+- scans prices continuously and prices every machine against the pool's real revenue;
+- rents a machine when its profit clears the threshold you set, then installs and starts the miner;
+- measures the real hashrate and can switch to the more profitable coin (optional);
+- gives a machine back when profit drops, the miner fails or the hashrate is weak;
+- reports to you and takes commands on **Telegram**.
 
-Bạn tải bản build ở mục **[Releases](../../releases/latest)**. Repo này chỉ chứa hướng dẫn và file mẫu, không có mã nguồn.
+Download the builds from **[Releases](../../releases/latest)**. This repository holds only the guide and sample files, no source code.
 
 ---
 
-## ⚡ Cài nhanh 1 lệnh
+## ⚡ One-command install
 
-Trước khi cài, chuẩn bị sẵn: **token bot Telegram**, **chat ID**, **ví PRL** và **API key** của nền tảng bạn dùng. Cách lấy từng thứ ở [mục 1](#1-chuẩn-bị).
+Have these ready: your **Telegram bot token**, your **chat ID**, a **PRL wallet** and the **API key** of each platform you use. [Section 1](#1-prerequisites) shows where to get each one.
 
-**VPS / Linux.** Script tự cài Docker, hỏi từng thông tin, rồi chạy bot nền:
+**VPS / Linux.** The script installs Docker, asks for each value, then runs the bot in the background:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jackerdev01/snipGPUs/main/install.sh | bash
 ```
 
-**Windows.** Mở **PowerShell**, dán lệnh dưới. Script tải `snipgpu.exe`, hỏi từng thông tin, rồi chạy bot và cài để bot tự chạy khi bạn đăng nhập Windows:
+**Windows.** Open **PowerShell** and paste the command below. The script downloads `snipgpu.exe`, asks for each value, starts the bot and sets it to start when you sign in to Windows:
 
 ```powershell
 irm https://raw.githubusercontent.com/jackerdev01/snipGPUs/main/install.ps1 | iex
 ```
 
-**Docker 1 dòng.** Thay các giá trị rồi chạy:
+**Docker in one line.** Replace the values, then run:
 
 ```bash
 docker run -d --name snipgpu --restart unless-stopped -v ~/snipgpu/data:/data \
@@ -37,75 +37,75 @@ docker run -d --name snipgpu --restart unless-stopped -v ~/snipgpu/data:/data \
   ghcr.io/jackerdev01/snipgpu:latest
 ```
 
-Muốn dùng nền tảng khác thì thêm `-e CLORE_API_KEY=...`, `-e QUICKPOD_API_KEY=...`, hoặc bộ `-e SALAD_API_KEY=... -e SALAD_ORG=... -e SALAD_PROJECT=...`. Thêm `-e QTC_WALLET=qz...` nếu đào QTC.
+For other platforms add `-e CLORE_API_KEY=...`, `-e QUICKPOD_API_KEY=...`, or `-e SALAD_API_KEY=... -e SALAD_ORG=... -e SALAD_PROJECT=...`. Add `-e QTC_WALLET=qz...` to mine QTC.
 
-**File chạy thẳng, kiểu miner** (Windows `snipgpu.exe` / Linux `snipgpu-linux`):
+**Standalone program, miner style** (Windows `snipgpu.exe` / Linux `snipgpu-linux`):
 
 ```bash
 ./snipgpu --telegram-token 123456:AAxxx --chat-id 123456789 --prl-wallet prl1xxx --vast-key xxx
 ```
 
-Các tham số khác: `--qtc-wallet`, `--clore-key`, `--quickpod-key`, `--salad-key`, `--salad-org`, `--salad-project`. Bot lưu chúng vào `data/.env`, nên **lần sau chỉ cần `./snipgpu`**, không phải gõ lại.
+Other options: `--qtc-wallet`, `--clore-key`, `--quickpod-key`, `--salad-key`, `--salad-org`, `--salad-project`. The bot saves them to `data/.env`, so **next time just run `./snipgpu`**.
 
-Chạy xong, Telegram sẽ nhận tin **"🤖 snipvast khởi động"**. Bot bắt đầu ở chế độ **chạy thử** (chỉ báo, không thuê). Xem [mục 4](#4-chạy-thử-rồi-bật-thuê-thật) để bật thuê thật.
+Once it runs, Telegram receives a **"🤖 snipGPU khởi động"** (started) message. The bot starts in **dry run** (it reports, it does not rent). See [section 4](#4-dry-run-then-go-live) to start renting.
 
-> 🔒 Key gõ trực tiếp trên dòng lệnh sẽ nằm trong lịch sử shell. Script `install.sh` / `install.ps1` hỏi key thay vì bắt gõ trên lệnh, nên an toàn hơn. Nếu đã gõ key trên lệnh, xoá lịch sử bằng `history -c` (Linux).
+> 🔒 Keys typed on the command line stay in your shell history. `install.sh` / `install.ps1` ask for them instead, which is safer. If you typed keys on the command line, clear the history with `history -c` (Linux).
 
-Các phần dưới đây là hướng dẫn chi tiết và cách tuỳ chỉnh.
-
----
-
-## Mục lục
-
-1. [Chuẩn bị](#1-chuẩn-bị)
-2. [Cài đặt: chọn 1 trong 3 cách](#2-cài-đặt)
-   - [A. Docker trên VPS / Linux](#a-docker-trên-vps--linux-khuyên-dùng)
-   - [B. Windows (file .exe)](#b-windows-file-exe)
-   - [C. Linux không dùng Docker](#c-linux-không-dùng-docker)
-3. [Điền cấu hình](#3-điền-cấu-hình)
-4. [Chạy thử rồi bật thuê thật](#4-chạy-thử-rồi-bật-thuê-thật)
-5. [Lệnh Telegram](#5-lệnh-telegram)
-6. [Tuỳ chỉnh thường dùng](#6-tuỳ-chỉnh-thường-dùng)
-7. [Cập nhật, sao lưu, chuyển máy](#7-cập-nhật-sao-lưu-chuyển-máy)
-8. [Xử lý sự cố](#8-xử-lý-sự-cố)
+The sections below are the detailed guide and the settings you can change.
 
 ---
 
-## 1. Chuẩn bị
+## Contents
 
-| Cần | Ghi chú |
+1. [Prerequisites](#1-prerequisites)
+2. [Install: pick one of three ways](#2-install)
+   - [A. Docker on a VPS / Linux](#a-docker-on-a-vps--linux-recommended)
+   - [B. Windows (.exe)](#b-windows-exe)
+   - [C. Linux without Docker](#c-linux-without-docker)
+3. [Configuration](#3-configuration)
+4. [Dry run, then go live](#4-dry-run-then-go-live)
+5. [Telegram commands](#5-telegram-commands)
+6. [Common settings](#6-common-settings)
+7. [Update, back up, move to another machine](#7-update-back-up-move-to-another-machine)
+8. [Troubleshooting](#8-troubleshooting)
+
+---
+
+## 1. Prerequisites
+
+| You need | Notes |
 |---|---|
-| Một máy chạy 24/7 | VPS Linux 1 vCPU / 1 GB RAM là đủ, hoặc PC Windows bật liên tục. Máy này **không cần GPU**: bot chỉ thuê GPU ở các nền tảng. |
-| Bot Telegram | Chat với [@BotFather](https://t.me/BotFather), gửi `/newbot` để nhận **token** dạng `123456789:AA...`. Sau đó **nhắn một tin bất kỳ cho bot vừa tạo**, nếu không bot sẽ không gửi tin cho bạn được. |
-| Chat ID Telegram | Chat với [@userinfobot](https://t.me/userinfobot), nó trả lời `Id: 123456789`. |
-| Ví PRL | Địa chỉ bắt đầu bằng `prl1...` |
-| Ví QTC | Chỉ cần khi bạn bật đào QTC. Địa chỉ bắt đầu bằng `qz...` |
-| Tài khoản và tiền nạp ở **ít nhất 1** nền tảng | Xem bảng bên dưới |
+| A machine running 24/7 | A Linux VPS with 1 vCPU / 1 GB RAM is enough, or a Windows PC that stays on. It **needs no GPU**: the bot rents GPUs on the platforms. |
+| A Telegram bot | Message [@BotFather](https://t.me/BotFather) and send `/newbot` to get a **token** like `123456789:AA...`. Then **send any message to your new bot**, or it cannot message you. |
+| Your Telegram chat ID | Message [@userinfobot](https://t.me/userinfobot); it replies `Id: 123456789`. |
+| A PRL wallet | An address starting with `prl1...` |
+| A QTC wallet | Only if you mine QTC. An address starting with `qz...` |
+| An account with funds on **at least one** platform | See the table below |
 
-Lấy API key ở từng nền tảng:
+Sign up and get an API key on each platform:
 
-| Nền tảng | Lấy key ở đâu | Ghi chú |
-|---|---|---|
-| **Vast.ai** | [cloud.vast.ai](https://cloud.vast.ai/) → Account → **API Keys** → Create | Nạp credit trước. |
-| **Clore.ai** | [clore.ai](https://clore.ai/) → Profile → **API** | Nạp số dư USD (hoặc CLORE). |
-| **QuickPod** | [console.quickpod.io](https://console.quickpod.io/) → Account → **API Key** | |
-| **SaladCloud** | [portal.salad.com](https://portal.salad.com/) → Account → **API Access** | Cần thêm **tên organization** và **tên project**: tạo project trong portal, tên của chúng nằm trên URL `portal.salad.com/organizations/<org>/projects/<project>`. |
+| Platform | Sign up | Where to find the key | Notes |
+|---|---|---|---|
+| **Vast.ai** | [Sign up for Vast.ai](https://cloud.vast.ai/?ref_id=716525) | Account → **API Keys** → Create | Add credit first. |
+| **Clore.ai** | [Sign up for Clore.ai](https://clore.ai/register?ref_id=6ph9tvyq) | Profile → **API** | Add a USD (or CLORE) balance. |
+| **QuickPod** | [Sign up for QuickPod](https://console.quickpod.io?affiliate=303bbe95-4783-4a7d-ad33-98a8da2aec40) | Account → **API Key** | |
+| **SaladCloud** | [portal.salad.com](https://portal.salad.com/) | Account → **API Access** | Also needs your **organization name** and **project name**: create a project in the portal; both names are in the URL `portal.salad.com/organizations/<org>/projects/<project>`. |
 
-Nền tảng nào bạn không dùng thì bỏ qua.
+Skip the platforms you do not use.
 
 ---
 
-## 2. Cài đặt
+## 2. Install
 
-### A. Docker trên VPS / Linux (khuyên dùng)
+### A. Docker on a VPS / Linux (recommended)
 
-**Bước 1. Cài Docker** (bỏ qua nếu máy đã có):
+**Step 1. Install Docker** (skip if it is already installed):
 
 ```bash
 curl -fsSL https://get.docker.com | sh
 ```
 
-**Bước 2. Tải file cấu hình chạy và khởi động lần đầu:**
+**Step 2. Download the compose file and start once:**
 
 ```bash
 mkdir -p ~/snipgpu && cd ~/snipgpu
@@ -114,56 +114,56 @@ docker compose up -d
 docker compose logs
 ```
 
-Lần đầu bot tạo thư mục `~/snipgpu/data` với các file `.env`, `config_*.yaml` và `ssh/`, in ra danh sách những gì bạn cần điền, rồi tự thử lại sau ít giây.
+On the first start the bot creates `~/snipgpu/data` with `.env`, `config_*.yaml` and `ssh/`, prints what you still have to fill in, and retries a few seconds later.
 
-**Bước 3.** Điền cấu hình theo [mục 3](#3-điền-cấu-hình):
+**Step 3.** Fill in the configuration as in [section 3](#3-configuration):
 
 ```bash
 nano data/.env
-nano data/config_vast.yaml      # và các config_*.yaml của nền tảng bạn dùng
+nano data/config_vast.yaml      # and the config_*.yaml of each platform you use
 ```
 
-**Bước 4.** Khởi động lại rồi xem log:
+**Step 4.** Restart and watch the log:
 
 ```bash
 docker compose restart
-docker compose logs -f          # Ctrl+C để thoát xem log, bot vẫn chạy
+docker compose logs -f          # Ctrl+C stops watching; the bot keeps running
 ```
 
-Khi chạy được, Telegram sẽ nhận tin **"🤖 snipvast khởi động"**. Bot tự chạy lại khi VPS khởi động lại.
+When it runs, Telegram receives the **"🤖 snipGPU khởi động"** (started) message. The bot comes back by itself after the VPS reboots.
 
-> **Windows có Docker Desktop** cũng làm y như trên trong PowerShell. Lệnh tải file ở bước 2 đổi thành:
+> **Windows with Docker Desktop** works the same way in PowerShell. In step 2, download the file with:
 > `curl.exe -fsSLO https://raw.githubusercontent.com/jackerdev01/snipGPUs/main/docker-compose.yml`
 
-### B. Windows (file .exe)
+### B. Windows (.exe)
 
-1. Tải **[snipgpu.exe](../../releases/latest/download/snipgpu.exe)**.
-2. Tạo thư mục riêng, ví dụ `C:\snipgpu\`, rồi chép `snipgpu.exe` vào đó.
-3. **Chạy `snipgpu.exe`** (nhấp đúp). Lần đầu nó tạo thư mục `C:\snipgpu\data\`, liệt kê những gì còn thiếu, rồi chờ bạn nhấn Enter để đóng.
-4. Mở `data\.env` và `data\config_*.yaml` bằng Notepad, rồi điền theo [mục 3](#3-điền-cấu-hình).
-5. Chạy lại `snipgpu.exe`. Nếu bạn đóng cửa sổ console, bot cũng dừng theo.
+1. Download **[snipgpu.exe](../../releases/latest/download/snipgpu.exe)**.
+2. Create a folder for it, for example `C:\snipgpu\`, and put `snipgpu.exe` there.
+3. **Run `snipgpu.exe`** (double-click). The first time it creates `C:\snipgpu\data\`, lists what is missing, and waits for Enter to close.
+4. Open `data\.env` and `data\config_*.yaml` in Notepad and fill them in as in [section 3](#3-configuration).
+5. Run `snipgpu.exe` again. Closing the console window stops the bot.
 
-Lưu ý:
+Notes:
 
-- **Windows SmartScreen** có thể báo "Windows protected your PC" vì file chưa ký số. Bấm **More info → Run anyway**.
-- Một số phần mềm diệt virus báo nhầm các file Python đã biên dịch. Nếu bị chặn, thêm thư mục `C:\snipgpu` vào danh sách loại trừ.
-- **Tự chạy khi bật máy:** nhấn `Win+R`, gõ `shell:startup`, rồi tạo trong thư mục đó một shortcut trỏ tới `C:\snipgpu\snipgpu.exe`.
-- Tắt chế độ **Sleep** của Windows. Máy ngủ thì bot cũng dừng, nhưng máy đã thuê vẫn tính tiền.
+- **Windows SmartScreen** may say "Windows protected your PC" because the file is not signed. Click **More info → Run anyway**.
+- Some antivirus programs flag compiled Python programs by mistake. If it is blocked, add `C:\snipgpu` to the exclusions.
+- **Start with Windows:** press `Win+R`, type `shell:startup`, and create a shortcut to `C:\snipgpu\snipgpu.exe` in that folder.
+- Turn off Windows **Sleep**. A sleeping PC stops the bot, but rented machines keep billing.
 
-### C. Linux không dùng Docker
+### C. Linux without Docker
 
-Bản build cần **Ubuntu 22.04+ / Debian 12+** (x86_64).
+The build needs **Ubuntu 22.04+ / Debian 12+** (x86_64).
 
 ```bash
 mkdir -p ~/snipgpu && cd ~/snipgpu
 curl -fsSLo snipgpu https://github.com/jackerdev01/snipGPUs/releases/latest/download/snipgpu-linux
 chmod +x snipgpu
-./snipgpu            # lần đầu: tạo ./data rồi thoát
-nano data/.env       # điền theo mục 3
-./snipgpu            # chạy thử ở foreground, Ctrl+C để dừng
+./snipgpu            # first run: creates ./data, then exits
+nano data/.env       # fill in as in section 3
+./snipgpu            # run in the foreground, Ctrl+C to stop
 ```
 
-Để bot chạy nền và tự chạy lại khi reboot, tạo một service systemd:
+To run it in the background and start it again after a reboot, create a systemd service:
 
 ```bash
 sudo tee /etc/systemd/system/snipgpu.service >/dev/null <<EOF
@@ -184,22 +184,22 @@ WantedBy=multi-user.target
 EOF
 sudo systemctl daemon-reload
 sudo systemctl enable --now snipgpu
-journalctl -u snipgpu -f        # xem log
+journalctl -u snipgpu -f        # watch the log
 ```
 
 ---
 
-## 3. Điền cấu hình
+## 3. Configuration
 
-Mọi thứ của bạn nằm trong thư mục **`data`**, ngay cạnh file chạy hoặc ở `~/snipgpu/data` nếu dùng Docker.
+Everything that is yours lives in the **`data`** folder, next to the program or in `~/snipgpu/data` with Docker.
 
-### 3.1. `data/.env`: key và Telegram
+### 3.1. `data/.env`: keys and Telegram
 
 ```ini
 TELEGRAM_BOT_TOKEN=123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TELEGRAM_CHAT_ID=123456789
 
-VAST_API_KEY=xxxxxxxx            # để trống = không dùng Vast
+VAST_API_KEY=xxxxxxxx            # empty = Vast not used
 CLORE_API_KEY=
 QUICKPOD_API_KEY=
 SALAD_API_KEY=
@@ -207,156 +207,160 @@ SALAD_ORG=
 SALAD_PROJECT=
 ```
 
-- `TELEGRAM_BOT_TOKEN` và `TELEGRAM_CHAT_ID` là **bắt buộc**.
-- Cần **ít nhất một** key nền tảng. Nền tảng nào để trống thì bot bỏ qua.
-- Không đặt dấu nháy hay khoảng trắng quanh dấu `=`.
+- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are **required**.
+- At least **one** platform key is required. The bot skips a platform whose key is empty.
+- No quotes and no spaces around `=`.
 
-### 3.2. Ví đào
+### 3.2. Mining wallets
 
-**Cách đơn giản nhất:** điền ví vào `data/.env`. Mỗi lần khởi động, bot tự ghi ví vào mọi file config:
+**Simplest:** put your wallets in `data/.env`. On every start the bot writes them into every config file:
 
 ```ini
 PRL_WALLET=prl1qxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-QTC_WALLET=qzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx      # chỉ cần khi đào QTC
+QTC_WALLET=qzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx      # only to mine QTC
 ```
 
-Khi `PRL_WALLET` / `QTC_WALLET` có giá trị, chúng **luôn được ưu tiên** hơn ví ghi trong file config. Muốn đổi ví thì sửa ở `.env` rồi khởi động lại bot.
+When `PRL_WALLET` / `QTC_WALLET` are set, they **always win** over the wallets in the config files. To change a wallet, edit `.env` and restart the bot.
 
-**Hoặc** điền tay trong từng file config. Mỗi nền tảng có một file riêng: `config_vast.yaml`, `config_clore.yaml`, `config_quickpod.yaml`, `config_salad.yaml`. Trong file của **mỗi nền tảng bạn dùng**, tìm các dòng:
+**Or** fill each config file by hand. Each platform has its own: `config_vast.yaml`, `config_clore.yaml`, `config_quickpod.yaml`, `config_salad.yaml`. In the file of **each platform you use**, find the lines:
 
 ```yaml
   wallet: ""   # BAT BUOC: dien dia chi vi cua ban
 ```
 
-Rồi điền theo mục chứa dòng đó:
+(the comment means "REQUIRED: your wallet address") and fill them in by the section they are in:
 
-| Dòng `wallet:` nằm trong mục | Điền |
+| `wallet:` line under | Value |
 |---|---|
-| `miner:` | Ví **PRL** (`prl1...`) |
-| `qtc:` | Ví **QTC** (`qz...`). Chỉ bắt buộc khi `qtc.enabled: true` trong cùng file. |
+| `miner:` | Your **PRL** wallet (`prl1...`) |
+| `qtc:` | Your **QTC** wallet (`qz...`). Only required with `qtc.enabled: true` in the same file. |
 
-Ví dụ:
+Example:
 
 ```yaml
 miner:
   wallet: "prl1qxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-Nếu còn thiếu ví hay key, bot **không khởi động** và in ra đúng dòng còn thiếu.
+If a wallet or key is missing, the bot **does not start** and prints exactly what is missing.
 
-> File YAML phân biệt **thụt lề bằng dấu cách**. Chỉ sửa phần giá trị sau dấu `:`, đừng xoá khoảng trắng đầu dòng và đừng dùng phím Tab.
+> YAML is **indented with spaces**. Change only the value after `:`; do not remove the leading spaces and do not use Tab.
 
-### 3.3. SSH key (bot tự lo)
+### 3.3. SSH key (handled by the bot)
 
-Lần đầu chạy, bot tự tạo `data/ssh/id_ed25519` và gắn khoá này vào các máy nó thuê để đo hashrate và đổi coin. Bạn không cần làm gì. **Đừng xoá thư mục này** khi đang có máy thuê, vì bot sẽ mất quyền vào những máy đó.
+On the first run the bot creates `data/ssh/id_ed25519` and attaches it to the machines it rents, to measure the hashrate and switch coins. Nothing to do. **Do not delete this folder** while machines are rented, or the bot loses access to them.
 
 ---
 
-## 4. Chạy thử rồi bật thuê thật
+## 4. Dry run, then go live
 
-Mọi nền tảng bắt đầu ở chế độ **chạy thử** (`dry_run: true`): bot quét giá và **báo cơ hội lên Telegram** nhưng **không thuê và không tiêu tiền**.
+Every platform starts in **dry run** (`dry_run: true`): the bot scans prices and **reports opportunities on Telegram** but **does not rent and spends nothing**.
 
-Nên để chạy thử vài giờ để xem bot báo những máy nào và lãi ước tính bao nhiêu. Khi thấy ổn, bật thuê thật **từng nền tảng** qua Telegram:
+Let it run dry for a few hours to see which machines it picks and the estimated profit. When you are happy, go live **per platform** from Telegram:
 
-| Nền tảng | Bật thuê thật | Về chạy thử |
+| Platform | Go live | Back to dry run |
 |---|---|---|
 | Vast | `/set vast dry_run false` | `/set vast dry_run true` |
 | Clore | `/clore live` | `/clore dry` |
 | QuickPod | `/quick live` | `/quick dry` |
 | Salad | `/salad live` | `/salad dry` |
 
-Bạn cũng có thể sửa `dry_run: false` trong file config rồi khởi động lại bot.
+You can also set `dry_run: false` in the config file and restart the bot.
 
-**Nên đặt giới hạn trước khi bật thuê thật**, ví dụ chỉ thuê 1 máy lúc đầu:
+**Set limits before going live**, for example one machine at first:
 
-```
+```text
 /set vast rent.max_machines 1
 /set clore rent.max_machines 1
 ```
 
 ---
 
-## 5. Lệnh Telegram
+## 5. Telegram commands
 
-Gửi `/help` để xem đủ danh sách. Các lệnh hay dùng:
+Send `/help` for the full list. The most used:
 
-| Lệnh | Tác dụng |
+| Command | What it does |
 |---|---|
-| `/status` | Tình trạng bot, số dư, số máy đang thuê |
-| `/report` | Báo cáo lãi/lỗ từng máy, so sánh 2 coin |
-| `/pods` | Danh sách máy đang thuê |
-| `/config` | Xem các thông số chính của mọi nền tảng |
-| `/set <nền tảng> <khoá> <giá trị>` | Đổi thông số ngay, không cần khởi động lại. Ví dụ `/set vast rent.max_machines 2` |
-| `/unset <nền tảng> <khoá>` | Trả thông số về giá trị trong file config |
-| `/pause` / `/resume` | Tạm dừng / tiếp tục thuê máy mới trên mọi nền tảng (máy đang chạy vẫn được theo dõi). Thêm tên nền tảng để chỉ áp dụng cho nền tảng đó: `/pause clore` |
-| `/stop <nền tảng> <id>` | Trả một máy ngay và không thuê lại máy đó trong 24 giờ |
-| `/clore`, `/quick`, `/salad` | Tình trạng riêng từng nền tảng |
-| `/bans` | Xem danh sách máy bị chặn |
-| `/unban <nền tảng> machine <id>` | Gỡ chặn một máy |
+| `/status` | Bot state, balances, machines rented |
+| `/report` | Profit/loss per machine, coin comparison |
+| `/pods` | Machines rented |
+| `/config` | Main settings of every platform |
+| `/set <platform> <key> <value>` | Change a setting at once, no restart. Example: `/set vast rent.max_machines 2` |
+| `/unset <platform> <key>` | Back to the value in the config file |
+| `/pause` / `/resume` | Stop / resume renting new machines on every platform (rented machines stay watched). Add a platform to limit it: `/pause clore` |
+| `/stop <platform> <id>` | Give a machine back now and do not rent it again for 24 hours |
+| `/clore`, `/quick`, `/salad` | State of one platform |
+| `/bans` | Banned machines |
+| `/unban <platform> machine <id>` | Unban a machine |
 
-`<nền tảng>` là một trong các tên `vast`, `clore`, `quick`, `salad`. Bot chỉ nhận lệnh từ đúng `TELEGRAM_CHAT_ID` của bạn, trong chat riêng với bot.
+`<platform>` is one of `vast`, `clore`, `quick`, `salad`. The bot only takes commands from your own `TELEGRAM_CHAT_ID`, in your private chat with it. Bot messages are in Vietnamese.
 
 ---
 
-## 6. Tuỳ chỉnh thường dùng
+## 6. Common settings
 
-Đổi qua Telegram bằng `/set <nền tảng> <khoá> <giá trị>` (có hiệu lực ngay, lưu ở `data/*_override.yaml`), hoặc sửa file `config_*.yaml` rồi khởi động lại bot. Mỗi nền tảng có bộ thông số riêng. Một số khoá chỉ có ở vài nền tảng: gửi `/config <nền tảng>` để xem đủ.
+Change them on Telegram with `/set <platform> <key> <value>` (effective at once, saved in `data/*_override.yaml`), or edit `config_*.yaml` and restart the bot. Each platform has its own settings, and some keys exist on some platforms only: send `/config <platform>` to see them all.
 
-| Khoá | Ý nghĩa | Mặc định |
+| Key | Meaning | Default |
 |---|---|---|
-| `rent.max_machines` | Số máy thuê cùng lúc tối đa | 1 |
-| `rent.max_price_hour` | Trần giá $/giờ cho cả máy (`null` = không giới hạn) | null |
-| `rent.coins.PRL` / `rent.coins.QTC` | Cho phép thuê để đào coin đó | true |
-| `profit.min_profit_by_coin.PRL` | Lãi tối thiểu để **thuê** máy đào PRL (0.05 = 5%) | 0.05 |
-| `profit.min_profit_by_coin.QTC` | Lãi tối thiểu để **thuê** máy đào QTC | 0.10 |
-| `monitor.min_profit_by_coin.PRL` | Lãi thực đo được dưới mức này kéo dài thì **trả máy** | 0.0 |
-| `qtc.enabled` | Bật đào QTC (cần ví QTC) | tuỳ nền tảng |
-| `qtc.auto_switch` | Tự đổi coin khi coin kia lãi hơn rõ | false |
-| `filters.countries_exclude` | Bỏ qua máy ở các nước này | `[CN]` |
-| `modes` (Vast) | `[ondemand]` (giá cố định) hoặc thêm `interruptible` (đấu giá, rẻ hơn nhưng có thể bị dừng) | `[ondemand]` |
+| `rent.max_machines` | Most machines rented at once | 1 |
+| `rent.max_price_hour` | Price cap in $/hour for the whole machine (`null` = no cap) | null |
+| `rent.coins.PRL` / `rent.coins.QTC` | Allow renting to mine that coin | true |
+| `profit.min_profit_by_coin.PRL` | Minimum profit to **rent** for PRL (0.05 = 5%) | 0.05 |
+| `profit.min_profit_by_coin.QTC` | Minimum profit to **rent** for QTC | 0.10 |
+| `monitor.min_profit_by_coin.PRL` | A machine whose measured profit stays under this is **given back** | 0.0 |
+| `qtc.enabled` | Mine QTC (needs a QTC wallet) | per platform |
+| `qtc.auto_switch` | Switch coin when the other one clearly pays more | false |
+| `filters.countries_exclude` | Skip machines in these countries | `[CN]` |
+| `modes` (Vast) | `[ondemand]` (fixed price), or add `interruptible` (bid: cheaper, may be stopped) | `[ondemand]` |
 
-Lãi được tính là `(doanh thu − chi phí) / chi phí`. Doanh thu lấy từ pool Kryptex theo giá coin hiện tại, đã trừ phí pool.
+Profit is `(revenue − cost) / cost`. Revenue comes from the Kryptex pool at the current coin price, after the pool fee.
 
-Ví dụ:
+Examples:
 
-```
+```text
 /set vast rent.max_machines 3
 /set vast profit.min_profit_by_coin.PRL 0.10
 /set clore qtc.enabled true
 ```
 
-Ví và địa chỉ pool **không đổi được qua Telegram**. Lý do: nếu ai chiếm được chat Telegram, họ cũng không thể chuyển coin của bạn đi chỗ khác. Muốn đổi những mục này thì sửa file config rồi khởi động lại bot.
+Wallets and pool addresses **cannot be changed from Telegram**: even someone who took over your Telegram chat could not send your coins elsewhere. Change them in the config file and restart the bot.
 
 ---
 
-## 7. Cập nhật, sao lưu, chuyển máy
+## 7. Update, back up, move to another machine
 
-**Cập nhật bản mới.** Cấu hình trong `data` luôn được giữ nguyên.
+**Update.** Your configuration in `data` is always kept.
 
 - Docker: `docker compose pull && docker compose up -d`
-- Windows / Linux: tải file mới ở [Releases](../../releases/latest), dừng bot, chép đè file chạy cũ, rồi chạy lại.
+- Windows / Linux: download the new file from [Releases](../../releases/latest), stop the bot, replace the old program, start it again. Or run the install command again.
 
-Khi có bản config mẫu mới, bot không ghi đè config của bạn. Nếu muốn lấy bản mẫu mới, đổi tên file cũ (ví dụ thành `config_vast.old.yaml`), chạy bot một lần để nó tạo file mới, rồi chép lại ví và các tuỳ chỉnh của bạn sang.
+A new version never overwrites your config files. To get a newer sample config, rename yours (for example `config_vast.old.yaml`), run the bot once so it creates a fresh one, then copy your wallets and settings over.
 
-**Sao lưu / chuyển máy.** Chép nguyên thư mục `data` sang máy mới là đủ, vì nó chứa key, ví, SSH key và danh sách máy đang thuê. **Đừng chạy hai bot cùng một `data` và cùng token Telegram**, vì hai bot sẽ tranh nhau quản lý máy.
+**Back up / move.** Copying the whole `data` folder to the new machine is enough: it holds your keys, wallets, SSH key and the machines being rented. **Never run two bots on the same `data` or the same Telegram token**: they would fight over the machines.
 
-**Bảo mật.** `data/.env` và `data/ssh/` là bí mật, không gửi cho ai.
+**Security.** `data/.env` and `data/ssh/` are secrets: do not share them.
 
 ---
 
-## 8. Xử lý sự cố
+## 8. Troubleshooting
 
-| Hiện tượng | Cách xử lý |
+| Symptom | Fix |
 |---|---|
-| Bot in "Can dien truoc khi chay" rồi dừng | Điền đúng các dòng được liệt kê, rồi chạy lại. |
-| Telegram không nhận được tin | Kiểm tra token và chat ID, và chắc chắn bạn đã **nhắn cho bot trước** (bấm Start). |
-| Log báo `HTTP 401` / `403` | API key sai, hoặc key đã bị xoá ở nền tảng. |
-| Báo cơ hội nhưng không thuê | Đang chạy thử (`dry_run`), hết số dư, đạt `rent.max_machines`, hoặc đang `/pause`. Gửi `/status` để xem lý do. |
-| Không có cơ hội nào | Thị trường không có máy đạt ngưỡng lãi. Có thể giảm `profit.min_profit_by_coin.*`, nhưng sẽ rủi ro hơn. |
-| Máy thuê bị trả ngay sau vài phút | Máy không chạy được miner (driver cũ, mạng chặn GitHub) hoặc hashrate thấp. Bot tự chặn máy đó, đây là hành vi bình thường. |
-| Docker: `permission denied` với thư mục `data` | Chạy `sudo chown -R $USER data`, hoặc chạy lệnh docker với `sudo`. |
-| Windows: cửa sổ mở rồi tắt ngay | Mở `cmd`, `cd C:\snipgpu`, rồi chạy `snipgpu.exe` để đọc thông báo lỗi. |
+| The bot prints "Can dien truoc khi chay" (fill in before running) and stops | Fill in the listed items and run it again. |
+| No Telegram messages | Check the token and chat ID, and make sure you **messaged the bot first** (press Start). |
+| The log shows `HTTP 401` / `403` | Wrong API key, or the key was deleted on the platform. |
+| Opportunities are reported but nothing is rented | Dry run (`dry_run`), no balance left, `rent.max_machines` reached, or `/pause`. Send `/status` to see why. |
+| No opportunities at all | No machine on the market clears your profit threshold. You can lower `profit.min_profit_by_coin.*`, at more risk. |
+| A rented machine is given back after a few minutes | It could not run the miner (old driver, GitHub blocked) or its hashrate was low. The bot bans it; this is normal. |
+| Docker: `permission denied` on `data` | Run `sudo chown -R $USER data`, or run docker with `sudo`. |
+| Windows: the window opens and closes at once | Open `cmd`, `cd C:\snipgpu`, and run `snipgpu.exe` to read the error. |
 
-Log của bot nằm ở `data/snipvast.log`, xoay vòng tối đa 3 file × 5 MB.
+The bot's log is `data/snipvast.log`, rotated at 3 files × 5 MB.
 
-> ⚠️ **Rủi ro:** thuê GPU để đào coin có thể lỗ khi giá coin hoặc độ khó thay đổi. Bot chỉ thuê theo ngưỡng lãi bạn đặt và tự trả máy khi lỗ, nhưng không đảm bảo lợi nhuận. Hãy bắt đầu với số tiền nhỏ và theo dõi `/report`.
+> ⚠️ **Risk:** renting GPUs to mine can lose money when coin prices or difficulty change. The bot only rents above your profit threshold and gives machines back at a loss, but profit is not guaranteed. Start small and watch `/report`.
+
+---
+
+⚡ Powered by [Hunter](https://t.me/nguyenhung2310)

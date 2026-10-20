@@ -55,6 +55,9 @@ ask TELEGRAM_BOT_TOKEN "Telegram bot token (tu @BotFather)" secret
 ask TELEGRAM_CHAT_ID   "Telegram chat ID (tu @userinfobot)"
 ask PRL_WALLET         "Vi PRL (prl1...)"
 ask QTC_WALLET         "Vi QTC (qz..., Enter de bo qua)"
+echo "   Chua co tai khoan? Vast.ai:  https://cloud.vast.ai/?ref_id=716525"
+echo "                      Clore.ai: https://clore.ai/register?ref_id=6ph9tvyq"
+echo "                      QuickPod: https://console.quickpod.io?affiliate=303bbe95-4783-4a7d-ad33-98a8da2aec40"
 ask VAST_API_KEY       "Vast.ai API key" secret
 ask CLORE_API_KEY      "Clore.ai API key" secret
 ask QUICKPOD_API_KEY   "QuickPod API key" secret
