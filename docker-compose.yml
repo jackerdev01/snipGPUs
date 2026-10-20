@@ -1,0 +1,14 @@
+# snipGPU - huong dan: https://github.com/jackerdev01/snipGPUs
+#   docker compose up -d      lan dau tao ./data (config, .env, SSH key): dien ./data/.env va vi roi: docker compose restart
+#   docker compose logs -f    xem log
+#   docker compose pull && docker compose up -d    cap nhat ban moi (./data giu nguyen)
+services:
+  snipgpu:
+    image: ghcr.io/jackerdev01/snipgpu:latest
+    container_name: snipgpu
+    restart: unless-stopped      # chua dien du thi container tu thu lai; dien xong la bot tu chay
+    volumes:
+      - ./data:/data
+    stop_grace_period: 15s
+    logging:
+      options: { max-size: "10m", max-file: "3" }
