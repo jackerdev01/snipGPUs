@@ -65,7 +65,7 @@ The sections below are the detailed guide and the settings you can change.
 3. [Configuration](#3-configuration)
 4. [Dry run, then go live](#4-dry-run-then-go-live)
 5. [Telegram commands](#5-telegram-commands)
-6. [Common settings](#6-common-settings)
+6. [Settings](#6-settings)
 7. [Update, back up, move to another machine](#7-update-back-up-move-to-another-machine)
 8. [Troubleshooting](#8-troubleshooting)
 
@@ -298,24 +298,21 @@ Send `/help` for the full list. The most used:
 
 ---
 
-## 6. Common settings
+## 6. Settings
 
-Change them on Telegram with `/set <platform> <key> <value>` (effective at once, saved in `data/*_override.yaml`), or edit `config_*.yaml` and restart the bot. Each platform has its own settings, and some keys exist on some platforms only: send `/config <platform>` to see them all.
+These are the settings `/config` shows on Telegram, which you can change with `/set`.
 
-| Key | Meaning | Default |
-|---|---|---|
-| `rent.max_machines` | Most machines rented at once | 1 |
-| `rent.max_price_hour` | Price cap in $/hour for the whole machine (`null` = no cap) | null |
-| `rent.coins.PRL` / `rent.coins.QTC` | Allow renting to mine that coin | true |
-| `profit.min_profit_by_coin.PRL` | Minimum profit to **rent** for PRL (0.05 = 5%) | 0.05 |
-| `profit.min_profit_by_coin.QTC` | Minimum profit to **rent** for QTC | 0.10 |
-| `monitor.min_profit_by_coin.PRL` | A machine whose measured profit stays under this is **given back** | 0.0 |
-| `qtc.enabled` | Mine QTC (needs a QTC wallet) | per platform |
-| `qtc.auto_switch` | Switch coin when the other one clearly pays more | false |
-| `filters.countries_exclude` | Skip machines in these countries | `[CN]` |
-| `modes` (Vast) | `[ondemand]` (fixed price), or add `interruptible` (bid: cheaper, may be stopped) | `[ondemand]` |
+### 6.1. How settings work
 
-Profit is `(revenue − cost) / cost`. Revenue comes from the Kryptex pool at the current coin price, after the pool fee.
+- **Telegram:** `/config <platform>` lists the settings below with their current values (`*` = changed from Telegram). `/set <platform> <key> <value>` changes one at once, no restart. It is saved in `data/` (`config_override.yaml` for Vast, `clore_override.yaml`, `quick_override.yaml`, `salad_override.yaml`) and wins over the config file. `/unset <platform> <key>` goes back to the file's value.
+- **File:** the same keys are in `data/config_vast.yaml`, `config_clore.yaml`, `config_quickpod.yaml` and `config_salad.yaml`. Edit the file, then restart the bot.
+
+Conventions:
+
+- **Profit** is `(revenue − cost) / cost`, written as a fraction: `0.05` = 5%, `-0.1` = a 10% loss. Revenue is the Kryptex pool's daily revenue at the current coin price, after the pool fee; cost is what the platform bills (GPUs, disk and the platform's fee).
+- `null` means "not set" (for example no price cap).
+- Wallets and pool addresses **cannot be changed from Telegram**, so someone who took over your chat cannot send your coins elsewhere: see [section 3.2](#32-mining-wallets).
+- A key marked with platforms (for example *(Vast, Clore)*) exists on those platforms only; unmarked keys exist on all four. *Defaults* are the values in the sample files, given as Vast / Clore / QuickPod / Salad when they differ.
 
 Examples:
 
@@ -323,9 +320,136 @@ Examples:
 /set vast rent.max_machines 3
 /set vast profit.min_profit_by_coin.PRL 0.10
 /set clore qtc.enabled true
+/set salad rent.max_spend_hour 2
 ```
 
-Wallets and pool addresses **cannot be changed from Telegram**: even someone who took over your Telegram chat could not send your coins elsewhere. Change them in the config file and restart the bot.
+### 6.2. General
+
+| Key | Meaning | Default |
+|---|---|---|
+| `dry_run` | `true`: scan and report opportunities only, never rent. `false`: rent for real. | `true` |
+| `poll_interval_sec` | Seconds between two market scans | 5 / 5 / 5 / 120 |
+| `notify.repeat_min` | An opportunity (same machine, same price) is reported again only after N minutes | `60` |
+| `miner.type` | PRL miner on new machines: `peakminer` or `krig`. Change one machine with `/miner <platform> <id> krig`. | `peakminer` |
+
+### 6.3. Renting (`rent.*`)
+
+| Key | Meaning | Default |
+|---|---|---|
+| `rent.enabled` | Rent new machines (`/pause` and `/resume` switch it). Machines already rented stay watched either way. | `true` |
+| `rent.max_machines` | Most machines rented at the same time on this platform | 1 / 100 / 5 / 5 |
+| `rent.max_price_hour` | Price cap per machine in $/hour, everything included (`null` = no cap) | `null` |
+| `rent.min_balance_hours` (Vast, Clore, QuickPod) | Rent only while the account balance still pays N hours of everything rented plus the new machine | 1 / 2 / 2 / – |
+| `rent.manual_ban_hours` | After `/stop <platform> <id>` without a duration, that machine (Salad: that GPU class) is not rented again for N hours | 24 |
+| `rent.coins.PRL` / `rent.coins.QTC` | Coins allowed when renting. Each machine is priced for both coins and mines the one that pays more; QTC also needs `qtc.enabled`. Both `false` = no renting. | `true` / `true` |
+
+### 6.4. Profit thresholds (`profit.*`, `monitor.*`)
+
+There are two thresholds per coin: one to **rent** a machine, a lower one to **give it back**. The gap keeps the bot from renting and returning the same machine over and over.
+
+| Key | Meaning | Default |
+|---|---|---|
+| `profit.min_profit_by_coin.PRL` | Rent for PRL only when the estimated profit is at least this | `0.05` |
+| `profit.min_profit_by_coin.QTC` | Rent for QTC only when the estimated profit is at least this (QTC moves more, so it is higher) | `0.10` |
+| `monitor.min_profit_by_coin.PRL` | Give a PRL machine back when its **measured** profit stays under this for `monitor.low_profit_min` minutes. Must not be above the renting threshold. | `0.0` |
+| `monitor.min_profit_by_coin.QTC` | Same for QTC | `0.03` |
+| `monitor.low_profit_min` | Minutes under the give-back threshold before the machine is given back | `30` |
+
+Before giving a machine back for low profit, the bot first tries to switch it to the other coin (if that coin clears its renting threshold), and on Salad to a cheaper priority.
+
+### 6.5. Watching rented machines (`monitor.*`)
+
+| Key | Meaning | Default |
+|---|---|---|
+| `monitor.interval_sec` | Seconds between two checks of each rented machine | 300 / 180 / 180 / 180 |
+| `monitor.ready_timeout_sec` | A machine whose miner is not running after N seconds is given back and banned | 900 / 300 / 600 / 1200 |
+| `monitor.warmup_sec` | Grace time after the start before the hashrate is judged | 300 / 2100 / 300 / 300 |
+| `monitor.early_min` | A machine younger than N minutes is judged on its first reading after warm-up (a loss gives it back or switches its coin at once); older machines are judged on the averaging window | `60` |
+| `monitor.window_min` | Hashrate = median of the last N minutes of miner readings | `15` |
+| `monitor.min_hashrate_ratio` | A machine below this share of its expected hashrate (0.6 = 60%) is given back and banned (Salad: moved to another node) | `0.6` |
+| `monitor.miner_down_checks` (Vast, QuickPod, Salad) | Checks in a row with the miner not running before the machine is given back (the miner restarts itself in between) | 2 / – / 2 / 3 |
+
+### 6.6. Machine filters (`filters.*`)
+
+| Key | Meaning | Default |
+|---|---|---|
+| `filters.min_reliability` (Vast, Clore, QuickPod) | Minimum reliability score the platform gives the machine (0–1) | `0.95` |
+| `filters.min_cuda` (Vast, Clore, QuickPod) | Minimum CUDA version of the host driver; older drivers cannot run the miner | `12.9` |
+| `filters.countries_exclude` (Vast, Clore, QuickPod) | Skip machines in these countries (2-letter codes). China often blocks GitHub and Docker Hub, so the miner cannot be downloaded. | `[CN]` |
+| `filters.max_gpus` (Vast, Clore, QuickPod) | Skip machines with more GPUs than this | `8` |
+| `filters.weak_ban_days` (Clore, QuickPod) | A machine that did not mine, had no SSH, or hashed far too low is banned for N days | `30` |
+
+### 6.7. Second coin and coin switching (`qtc.*`)
+
+| Key | Meaning | Default |
+|---|---|---|
+| `qtc.enabled` | Mine QTC on this platform (needs `QTC_WALLET`). Off: PRL only. | false / false / false / true |
+| `qtc.miner` | Miner used for QTC | `peakminer` |
+| `qtc.auto_switch` | Switch a machine that **still makes a profit** to the other coin when that coin clearly pays more | `false` |
+| `qtc.switch_revenue_pct` (Vast, Clore, QuickPod) | With `auto_switch`: switch when the other coin earns at least this much more revenue (0.05 = 5%), both ways. `null` = use `switch_margin_pct` instead. | `0.05` |
+| `qtc.switch_margin_pct` | When `switch_revenue_pct` is `null`, and for low-profit switches: the other coin must beat the current one by this many profit points | `0.05` |
+| `qtc.switch_confirm_min` | The other coin must stay better for N minutes in a row before a switch | `60` |
+| `qtc.switch_min_hold_h` | A machine keeps a coin at least N hours before it may switch again | `6` |
+| `qtc.switch_back_ban_h` | If the new coin measures worse than the old one, the machine switches back and that coin is not tried again on it for N hours | `24` |
+| `qtc.rent_avg_hours` (Vast; applies to every platform) | Rent for QTC on the lower of the 60-minute and the N-hour average revenue, so a short spike does not rent machines that lose once it fades. `0` = off. | `6` |
+
+### 6.8. Vast only
+
+| Key | Meaning | Default |
+|---|---|---|
+| `modes` | Rental types to scan: `ondemand` (fixed price) and/or `interruptible` (you bid; cheaper, but the machine stops when someone outbids you) | `[ondemand]` |
+| `rent.prefer` | `profit`: rent the most profitable machine whatever its type. `mode`: follow `rent.mode_priority`. | `profit` |
+| `rent.mode_priority` | Rental types allowed, in order of preference | `[ondemand, interruptible]` |
+| `profit.min_profit_by_mode.ondemand` / `.interruptible` | Renting threshold per rental type. The higher of this and the coin's threshold applies. | `0.05` / `0.50` |
+| `bid.margin_pct` | Bid this much above the minimum bid. When outbid, the bot bids again only if the machine still clears the interruptible threshold, else gives it back. | `0.05` |
+| `filters.verified_only` | Rent only machines Vast marked as verified | `false` |
+| `filters.whole_machine_only` | Rent only all the GPUs of a machine, never a part of it | `true` |
+| `filters.min_compute_cap` | Minimum GPU compute capability (800 = RTX 30 series / A100 and newer) | `800` |
+| `filters.host_fault_ban_days` | A machine that cannot start a container because of its owner's setup is banned for N days; an owner with 2 such machines has all of them banned | `30` |
+| `filters.fallback_miner`, `filters.fallback_min_cuda` | Miner for hosts whose driver is too old for the main miner (`""` = skip those hosts), and the CUDA version it needs | `""`, `12.0` |
+| `instance.disk_gb` | Disk rented with the machine, in GB (billed even while an interruptible machine is stopped) | `10` |
+
+### 6.9. Clore only
+
+| Key | Meaning | Default |
+|---|---|---|
+| `filters.min_power_ratio` | Skip servers whose GPU power limit is under this share of the GPU's full power; the expected speed is scaled by it | `0.7` |
+| `filters.min_mrl_hours` | Skip servers whose maximum rental length is under N hours | `6` |
+| `monitor.warmup_miner_sec` | Grace time when the bot reads the miner over SSH | `300` |
+| `monitor.share_stall_min` | No share on the pool for N minutes = the miner is down | `30` |
+
+On Clore, `monitor.warmup_sec` (2100 s) is the grace time when the bot has no SSH and watches the pool's 30-minute average instead.
+
+### 6.10. QuickPod only
+
+| Key | Meaning | Default |
+|---|---|---|
+| `filters.min_duration_days` | Skip machines whose maximum rental length is under N days | `1` |
+| `instance.disk_gb` | Disk per pod in GB; machines offering less are skipped | `32` |
+| `instance.bandwidth_gb_day` | Estimated traffic per pod per day, added to the cost | `0.5` |
+| `monitor.ssh_fail_checks` | Checks in a row without SSH before the pod is given back | `4` |
+| `monitor.no_hash_checks` | Checks in a row with the miner running but no readable hashrate before the pod is given back | `5` |
+
+### 6.11. Salad only
+
+On Salad you do not pick a machine: you pick a **GPU class** and a **priority** (`high` > `medium` > `low` > `batch`; higher costs more and is interrupted less), and Salad assigns a node. Waiting for a node is free; you pay only while it runs. SaladCloud has no balance API: keep credit on the portal and cap the spend with `rent.max_spend_hour`.
+
+| Key | Meaning | Default |
+|---|---|---|
+| `rent.priorities` | Priorities allowed. The highest one that still clears the renting threshold is used. | `[high, medium, low, batch]` |
+| `rent.max_per_class` | Most machines of the same GPU class | `3` |
+| `rent.max_spend_hour` | Most dollars per hour for everything rented on Salad | `1.0` |
+| `priority.up_confirm_min`, `priority.up_margin_pct` | Move a running machine up to a higher priority when it clears the renting threshold plus this margin for N minutes in a row | `30`, `0.03` |
+| `priority.min_hold_min` | Keep a priority at least N minutes before moving up | `60` |
+| `filters.class_ban_hours` | Ban a class at that priority for N hours after `max_reallocs` weak nodes in a row (`0` = no ban: delete and rent again) | `0` |
+| `filters.alloc_fail_ban_hours` | Ban a class at that priority for N hours when no node came (`0` = no ban) | `0` |
+| `instance.cpu`, `instance.memory_mb`, `instance.storage_gb` | Resources per machine: vCPUs, RAM in MB, disk in GB | `2`, `8192`, `10` |
+| `instance.hash_factor` | Expected speed on a class never measured = table speed × this (Salad nodes are home PCs) | `0.8` |
+| `monitor.wait_step_up_min` | Waiting for a node longer than N minutes moves the request up to the next priority that still pays | `10` |
+| `monitor.max_down_min` | A running machine interrupted for more than N minutes in a row is given back | `90` |
+| `monitor.max_reallocs` | A weak node is swapped for another one at most N times | `3` |
+
+On Salad, `monitor.ready_timeout_sec` (1200 s) is the total wait for a node before the request is given up.
 
 ---
 
