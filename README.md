@@ -77,7 +77,7 @@ The sections below are the detailed guide and the settings you can change.
 |---|---|
 | A machine running 24/7 | A Linux VPS with 1 vCPU / 1 GB RAM is enough, or a Windows PC that stays on. It **needs no GPU**: the bot rents GPUs on the platforms. |
 | A Telegram bot | Message [@BotFather](https://t.me/BotFather) and send `/newbot` to get a **token** like `123456789:AA...`. Then **send any message to your new bot**, or it cannot message you. |
-| Your Telegram chat ID | Message [@userinfobot](https://t.me/userinfobot); it replies `Id: 123456789`. |
+| Your Telegram chat ID | Message [@userinfobot](https://t.me/userinfobot); it replies `Id: 123456789`. This is **your** ID. Do not use the number before `:` in the bot token: that is the bot's own ID. |
 | A PRL wallet | An address starting with `prl1...` |
 | A QTC wallet | Only if you mine QTC. An address starting with `qz...` |
 | An account with funds on **at least one** platform | See the table below |
@@ -408,6 +408,9 @@ Before giving a machine back for low profit, the bot first tries to switch it to
 | `filters.host_fault_ban_days` | A machine that cannot start a container because of its owner's setup is banned for N days; an owner with 2 such machines has all of them banned | `30` |
 | `filters.fallback_miner`, `filters.fallback_min_cuda` | Miner for hosts whose driver is too old for the main miner (`""` = skip those hosts), and the CUDA version it needs | `""`, `12.0` |
 | `instance.disk_gb` | Disk rented with the machine, in GB (billed even while an interruptible machine is stopped) | `10` |
+| `search.daily_rows` | Offer rows the key may search per day. A personal Vast account is limited to about 20,000 (a team account is not). `auto`: no limit until Vast first answers "quota exhausted", then 20,000. `0`: never limited. | `auto` |
+| `search.limit` | While limited: most offers per scan with your key, best value first. Scans are spaced so the quota lasts the whole day (UTC). | `300` |
+| `search.public_every_sec` | While limited, and once the day's quota is gone: scan Vast's public search (no key, the 64 best value offers) every N seconds, so the bot keeps finding and renting machines | `60` |
 
 ### 6.9. Clore only
 
@@ -474,7 +477,10 @@ A new version never overwrites your config files. To get a newer sample config, 
 |---|---|
 | The bot prints "Can dien truoc khi chay" (fill in before running) and stops | Fill in the listed items and run it again. |
 | No Telegram messages | Check the token and chat ID, and make sure you **messaged the bot first** (press Start). |
+| Log shows `403` `the bot can't send messages to the bot` | `TELEGRAM_CHAT_ID` is the bot's own ID (the number before `:` in the token). Put **your** ID from [@userinfobot](https://t.me/userinfobot) in `data/.env` and restart. |
+| Log shows `403` `bot was blocked by the user` / `chat not found` | Open your bot on Telegram, press **Start** (unblock it if needed), then restart. |
 | The log shows `HTTP 401` / `403` | Wrong API key, or the key was deleted on the platform. |
+| Vast: `HTTP 429: Daily search row quota exhausted` | Your Vast account's daily search quota (about 20,000 rows) is used up. Update to the latest version: the bot then spaces its searches over the day and keeps scanning and renting through Vast's public search. The quota resets daily (0:00 UTC). |
 | Opportunities are reported but nothing is rented | Dry run (`dry_run`), no balance left, `rent.max_machines` reached, or `/pause`. Send `/status` to see why. |
 | No opportunities at all | No machine on the market clears your profit threshold. You can lower `profit.min_profit_by_coin.*`, at more risk. |
 | A rented machine is given back after a few minutes | It could not run the miner (old driver, GitHub blocked) or its hashrate was low. The bot bans it; this is normal. |
